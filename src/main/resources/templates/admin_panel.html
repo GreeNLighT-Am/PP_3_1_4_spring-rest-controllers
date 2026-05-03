@@ -81,7 +81,8 @@
                     <div class="card">
                         <h5 class="card-header d-flex align-items-center">Add new user</h5>
                         <div class="card-body">
-                            <form id="newUserForm" class="container mx-auto text-center fw-bold" style="max-width: 400px;">
+                            <form id="newUserForm" class="container mx-auto text-center fw-bold"
+                                  style="max-width: 400px;">
                                 <div class="mb-3">
                                     <label for="newFirstName" class="form-label mb-0">First name</label>
                                     <input type="text" class="form-control py-1" id="newFirstName" name="firstName">
@@ -235,41 +236,72 @@
     let allRoles = [];
     let currentUser = null;
 
-    // Настройка fetch с CSRF
-    function fetchWithCsrf(url, options = {}) {
+    // Настройка fetch с правильными заголовками
+    async function fetchApi(url, options = {}) {
         const headers = {
             'Content-Type': 'application/json',
-            [csrfHeader]: csrfToken,
+            'X-Requested-With': 'XMLHttpRequest',
             ...options.headers
         };
-        return fetch(url, { ...options, headers });
+
+        // Добавляем CSRF токен для всех запросов
+        headers[csrfHeader] = csrfToken;
+
+        const response = await fetch(url, {...options, headers});
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw {status: response.status, ...errorData};
+        }
+
+        return response.json();
     }
 
     // Загрузка начальных данных
     async function loadInitialData() {
         try {
-            const [usersResponse, rolesResponse, currentUserResponse] = await Promise.all([
-                fetchWithCsrf('/api/admin/users'),
-                fetchWithCsrf('/api/admin/roles'),
-                fetchWithCsrf('/api/admin/current-user')
+            const [users, roles, user] = await Promise.all([
+                fetchApi('/api/admin/users'),
+                fetchApi('/api/admin/roles'),
+                fetchApi('/api/admin/current-user')
             ]);
 
-            allUsers = await usersResponse.json();
-            allRoles = await rolesResponse.json();
-            currentUser = await currentUserResponse.json();
+            allUsers = users;
+            allRoles = roles;
+            currentUser = user;
 
             renderUserInfo();
             renderUsersTable();
             populateRoleSelects();
         } catch (error) {
             console.error('Error loading initial data:', error);
+            showAlert('danger', 'Ошибка при загрузке данных');
+        }
+    }
+
+    // Обновление данных текущего пользователя
+    async function refreshCurrentUser() {
+        try {
+            const user = await fetchApi('/api/admin/current-user');
+            currentUser = user;
+            renderUserInfo();
+        } catch (error) {
+            console.error('Error refreshing current user:', error);
         }
     }
 
     // ============ Рендеринг навбара ============
     function renderUserInfo() {
         const userInfo = document.getElementById('userInfo');
-        const roles = currentUser.roles.map(role => role.role.replace('ROLE_', '')).join(', ');
+        if (!currentUser || !currentUser.roles) {
+            userInfo.innerHTML = '<span class="text-white">Загрузка...</span>';
+            return;
+        }
+
+        const roles = currentUser.roles
+            .map(role => role.role.replace('ROLE_', ''))
+            .join(', ');
+
         userInfo.innerHTML = `
         <span class="text-white me-1 fs-5 fw-bold">${currentUser.email}</span>
         <span class="text-white me-1 fs-5">with roles:</span>
@@ -280,26 +312,40 @@
     // ============ Рендеринг таблицы пользователей ============
     function renderUsersTable() {
         const tbody = document.getElementById('usersTableBody');
-        tbody.innerHTML = allUsers.map(user => `
-        <tr>
-            <td>${user.id}</td>
-            <td>${user.firstName}</td>
-            <td>${user.lastName}</td>
-            <td>${user.age || ''}</td>
-            <td>${user.email}</td>
-            <td>${user.roles.map(role => role.role.replace('ROLE_', '')).join(', ')}</td>
-            <td>
-                <button type="button" class="btn btn-info text-white edit-btn" data-user-id="${user.id}">
-                    Edit
-                </button>
-            </td>
-            <td>
-                <button type="button" class="btn btn-danger delete-btn" data-user-id="${user.id}">
-                    Delete
-                </button>
-            </td>
-        </tr>
-    `).join('');
+
+        // Эта проверка нужна только для безопасности,
+        // если что-то пойдет не так при загрузке данных
+        if (!allUsers || allUsers.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center">Нет данных о пользователях</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = allUsers.map(user => {
+            const roles = (user.roles && user.roles.length > 0)
+                ? user.roles.map(role => role.role.replace('ROLE_', '')).join(', ')
+                : '<span class="text-muted">Нет ролей</span>';
+
+            return `
+            <tr>
+                <td>${user.id}</td>
+                <td>${user.firstName || ''}</td>
+                <td>${user.lastName || ''}</td>
+                <td>${user.age || ''}</td>
+                <td>${user.email}</td>
+                <td>${roles}</td>
+                <td>
+                    <button type="button" class="btn btn-info text-white edit-btn" data-user-id="${user.id}">
+                        Edit
+                    </button>
+                </td>
+                <td>
+                    <button type="button" class="btn btn-danger delete-btn" data-user-id="${user.id}">
+                        Delete
+                    </button>
+                </td>
+            </tr>
+        `;
+        }).join('');
 
         // Добавляем обработчики событий
         document.querySelectorAll('.edit-btn').forEach(btn => {
@@ -313,8 +359,11 @@
     // ============ Заполнение select'ов ролей ============
     function populateRoleSelects() {
         const roleSelects = ['newRole', 'editRole'];
+
         roleSelects.forEach(selectId => {
             const select = document.getElementById(selectId);
+            if (!select) return;
+
             select.innerHTML = allRoles.map(role => `
             <option value="${role.id}">${role.role.replace('ROLE_', '')}</option>
         `).join('');
@@ -322,10 +371,11 @@
     }
 
     // ============ Обработка формы создания пользователя ============
-    document.getElementById('newUserForm').addEventListener('submit', async function(e) {
+    document.getElementById('newUserForm').addEventListener('submit', async function (e) {
         e.preventDefault();
 
         const saveButton = this.querySelector('button[type="submit"]');
+        const originalText = saveButton.textContent;
         saveButton.disabled = true;
         saveButton.textContent = 'Adding...';
 
@@ -337,31 +387,56 @@
             age: parseInt(document.getElementById('newAge').value) || null,
             email: document.getElementById('newEmail').value.trim(),
             password: document.getElementById('newPassword').value.trim(),
-            roles: Array.from(document.getElementById('newRole').selectedOptions).map(opt => ({ id: parseInt(opt.value) }))
+            roles: Array.from(document.getElementById('newRole').selectedOptions).map(opt => ({
+                id: parseInt(opt.value)
+            }))
         };
 
         try {
-            const response = await fetchWithCsrf('/api/admin/users', {
+            const result = await fetchApi('/api/admin/users', {
                 method: 'POST',
                 body: JSON.stringify(formData)
             });
 
-            if (response.ok) {
-                const result = await response.json();
-                allUsers.push(result.user);
-                renderUsersTable();
-                this.reset();
-                showAlert('success', result.message);
-            } else if (response.status === 400) {
-                const errors = await response.json();
-                displayFormErrors('newUserForm', errors);
+            // Обновляем список пользователей
+            await refreshUsersList();
+
+            // Очищаем форму
+            this.reset();
+
+            // Очищаем выбор ролей
+            const roleSelect = document.getElementById('newRole');
+            if (roleSelect) {
+                Array.from(roleSelect.options).forEach(option => {
+                    option.selected = false;
+                });
             }
+
+            // Показываем сообщение об успехе
+            showAlert('success', result.message || 'Пользователь успешно создан');
+
+            // Переключаемся на вкладку с таблицей пользователей (Bootstrap 5 way)
+            const usersTableTab = document.getElementById('users-table-tab');
+            if (usersTableTab) {
+                const tab = new bootstrap.Tab(usersTableTab);
+                tab.show();
+            }
+
+            // Прокручиваем страницу к таблице (опционально)
+            document.getElementById('users-table').scrollIntoView({behavior: 'smooth'});
+
         } catch (error) {
             console.error('Error creating user:', error);
-            showAlert('danger', 'Ошибка сети при создании пользователя');
+
+            if (error.status === 400) {
+                // Ошибка валидации
+                displayFormErrors('newUserForm', error);
+            } else {
+                showAlert('danger', error.error || 'Ошибка при создании пользователя');
+            }
         } finally {
             saveButton.disabled = false;
-            saveButton.textContent = 'Add new user';
+            saveButton.textContent = originalText;
         }
     });
 
@@ -372,15 +447,16 @@
         if (!user) return;
 
         document.getElementById('editId').value = user.id;
-        document.getElementById('editFirstName').value = user.firstName;
-        document.getElementById('editLastName').value = user.lastName;
+        document.getElementById('editFirstName').value = user.firstName || '';
+        document.getElementById('editLastName').value = user.lastName || '';
         document.getElementById('editAge').value = user.age || '';
-        document.getElementById('editEmail').value = user.email;
+        document.getElementById('editEmail').value = user.email || '';
         document.getElementById('editPassword').value = '';
 
+        // Выбираем роли пользователя
         const roleSelect = document.getElementById('editRole');
         Array.from(roleSelect.options).forEach(option => {
-            option.selected = user.roles.some(role => role.id === parseInt(option.value));
+            option.selected = user.roles && user.roles.some(role => role.id === parseInt(option.value));
         });
 
         clearFormErrors('editUserForm');
@@ -389,7 +465,7 @@
         modal.show();
     }
 
-    document.getElementById('saveEdit').addEventListener('click', async function() {
+    document.getElementById('saveEdit').addEventListener('click', async function () {
         const saveButton = this;
         saveButton.disabled = true;
         saveButton.textContent = 'Saving...';
@@ -403,33 +479,39 @@
             age: parseInt(document.getElementById('editAge').value) || null,
             email: document.getElementById('editEmail').value.trim(),
             password: document.getElementById('editPassword').value.trim(),
-            roles: Array.from(document.getElementById('editRole').selectedOptions).map(opt => ({ id: parseInt(opt.value) }))
+            roles: Array.from(document.getElementById('editRole').selectedOptions).map(opt => ({
+                id: parseInt(opt.value)
+            }))
         };
 
         try {
-            const response = await fetchWithCsrf(`/api/admin/users/${userId}`, {
+            const result = await fetchApi(`/api/admin/users/${userId}`, {
                 method: 'PUT',
                 body: JSON.stringify(formData)
             });
 
-            if (response.ok) {
-                const result = await response.json();
-                const index = allUsers.findIndex(u => u.id === userId);
-                if (index !== -1) {
-                    allUsers[index] = result.user;
-                }
-                renderUsersTable();
+            // Обновляем список пользователей
+            await refreshUsersList();
 
-                const modal = bootstrap.Modal.getInstance(document.getElementById('editUserModal'));
-                modal.hide();
-                showAlert('success', result.message);
-            } else if (response.status === 400) {
-                const errors = await response.json();
-                displayFormErrors('editUserForm', errors);
+            // Проверяем, редактировал ли пользователь самого себя
+            if (currentUser && currentUser.id === userId) {
+                await refreshCurrentUser();
             }
+
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editUserModal'));
+            modal.hide();
+
+            showAlert('success', result.message || 'Пользователь успешно обновлен');
+
         } catch (error) {
             console.error('Error updating user:', error);
-            showAlert('danger', 'Ошибка сети при обновлении пользователя');
+
+            if (error.status === 400) {
+                // Ошибка валидации
+                displayFormErrors('editUserForm', error);
+            } else {
+                showAlert('danger', error.error || 'Ошибка при обновлении пользователя');
+            }
         } finally {
             saveButton.disabled = false;
             saveButton.textContent = 'Edit';
@@ -442,63 +524,100 @@
         const user = allUsers.find(u => u.id === userId);
         if (!user) return;
 
-        document.getElementById('deleteId').value = user.id;
-        document.getElementById('deleteFirstName').value = user.firstName;
-        document.getElementById('deleteLastName').value = user.lastName;
-        document.getElementById('deleteAge').value = user.age || '';
-        document.getElementById('deleteEmail').value = user.email;
+        // Проверяем, не пытается ли пользователь удалить самого себя
+        if (currentUser && currentUser.id === userId) {
+            showAlert('warning', 'Вы не можете удалить самого себя!');
+            return;
+        }
 
+        document.getElementById('deleteId').value = user.id;
+        document.getElementById('deleteFirstName').value = user.firstName || '';
+        document.getElementById('deleteLastName').value = user.lastName || '';
+        document.getElementById('deleteAge').value = user.age || '';
+        document.getElementById('deleteEmail').value = user.email || '';
+
+        // Заполняем роли для отображения
         const roleSelect = document.getElementById('deleteRole');
-        roleSelect.innerHTML = user.roles.map(role => `
-        <option value="${role.id}" selected>${role.role.replace('ROLE_', '')}</option>
-    `).join('');
+        roleSelect.innerHTML = user.roles
+            ? user.roles.map(role => `
+            <option value="${role.id}" selected>${role.role.replace('ROLE_', '')}</option>
+        `).join('')
+            : '';
 
         const modal = new bootstrap.Modal(document.getElementById('deleteUserModal'));
         modal.show();
     }
 
-    document.getElementById('deleteUser').addEventListener('click', async function() {
+    document.getElementById('deleteUser').addEventListener('click', async function () {
         const userId = parseInt(document.getElementById('deleteId').value);
 
         try {
-            const response = await fetchWithCsrf(`/api/admin/users/${userId}`, {
+            const result = await fetchApi(`/api/admin/users/${userId}`, {
                 method: 'DELETE'
             });
 
-            if (response.ok) {
-                const result = await response.json();
-                allUsers = allUsers.filter(u => u.id !== userId);
-                renderUsersTable();
+            // Обновляем список пользователей
+            await refreshUsersList();
 
-                const modal = bootstrap.Modal.getInstance(document.getElementById('deleteUserModal'));
-                modal.hide();
-                showAlert('success', result.message);
-            } else {
-                showAlert('danger', 'Ошибка при удалении пользователя');
-            }
+            const modal = bootstrap.Modal.getInstance(document.getElementById('deleteUserModal'));
+            modal.hide();
+
+            showAlert('success', result.message || 'Пользователь успешно удален');
+
         } catch (error) {
             console.error('Error deleting user:', error);
-            showAlert('danger', 'Ошибка сети при удалении пользователя');
+            showAlert('danger', error.error || 'Ошибка при удалении пользователя');
         }
     });
+
+    // ============ Функции обновления данных ============
+    async function refreshUsersList() {
+        try {
+            const users = await fetchApi('/api/admin/users');
+            allUsers = users;
+            renderUsersTable();
+        } catch (error) {
+            console.error('Error refreshing users list:', error);
+        }
+    }
+
+    async function refreshCurrentUser() {
+        try {
+            const user = await fetchApi('/api/admin/current-user');
+            currentUser = user;
+            renderUserInfo();
+
+            // Также обновляем данные текущего пользователя в таблице, если они там есть
+            const userInTable = allUsers.find(u => u.id === currentUser.id);
+            if (userInTable) {
+                Object.assign(userInTable, currentUser);
+                renderUsersTable();
+            }
+        } catch (error) {
+            console.error('Error refreshing current user:', error);
+        }
+    }
 
     // ============ Вспомогательные функции ============
     function clearFormErrors(formId) {
         const form = document.getElementById(formId);
+        if (!form) return;
+
         form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
         form.querySelectorAll('[data-error]').forEach(el => el.textContent = '');
     }
 
     function displayFormErrors(formId, errors) {
         const form = document.getElementById(formId);
+        if (!form) return;
 
         const inputMap = {
-            'firstName': `${formId === 'newUserForm' ? 'newFirstName' : 'editFirstName'}`,
-            'lastName': `${formId === 'newUserForm' ? 'newLastName' : 'editLastName'}`,
-            'age': `${formId === 'newUserForm' ? 'newAge' : 'editAge'}`,
-            'email': `${formId === 'newUserForm' ? 'newEmail' : 'editEmail'}`,
-            'password': `${formId === 'newUserForm' ? 'newPassword' : 'editPassword'}`,
-            'roles': `${formId === 'newUserForm' ? 'newRole' : 'editRole'}`
+            'firstName': formId === 'newUserForm' ? 'newFirstName' : 'editFirstName',
+            'lastName': formId === 'newUserForm' ? 'newLastName' : 'editLastName',
+            'age': formId === 'newUserForm' ? 'newAge' : 'editAge',
+            'email': formId === 'newUserForm' ? 'newEmail' : 'editEmail',
+            'password': formId === 'newUserForm' ? 'newPassword' : 'editPassword',
+            'roles': formId === 'newUserForm' ? 'newRole' : 'editRole'
         };
 
         for (const [field, message] of Object.entries(errors)) {
@@ -514,22 +633,52 @@
     }
 
     function showAlert(type, message) {
-        const alertContainer = document.createElement('div');
-        alertContainer.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 end-0 m-3`;
-        alertContainer.style.zIndex = '9999';
-        alertContainer.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
-        document.body.appendChild(alertContainer);
+        const alertContainer = document.getElementById('alertContainer') || createAlertContainer();
 
+        // Удаляем предыдущие алерты того же типа
+        const existingAlerts = alertContainer.querySelectorAll(`.alert-${type}`);
+        existingAlerts.forEach(alert => alert.remove());
+
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type} alert-dismissible fade show`;
+        alert.role = 'alert';
+        alert.innerHTML = `
+        <strong>${type === 'success' ? '✓' : type === 'danger' ? '✗' : '⚠'}</strong> ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+
+        alertContainer.appendChild(alert);
+
+        /// Автоматически скрываем через 5 секунд
         setTimeout(() => {
-            alertContainer.remove();
-        }, 3000);
+            if (alert.parentNode) {
+                alert.classList.remove('show');
+                setTimeout(() => {
+                    if (alert.parentNode) {
+                        alert.remove();
+                    }
+                }, 300);
+            }
+        }, 5000);
+    }
+
+    function createAlertContainer() {
+        const container = document.createElement('div');
+        container.id = 'alertContainer';
+        container.className = 'position-fixed top-0 end-0 p-3';
+        container.style.zIndex = '9999';
+        document.body.appendChild(container);
+        return container;
     }
 
     // ============ Инициализация ============
     document.addEventListener('DOMContentLoaded', loadInitialData);
+
+    // Обновляем данные каждые 30 секунд (опционально)
+    // setInterval(async () => {
+    //     await refreshUsersList();
+    //     await refreshCurrentUser();
+    // }, 30000);
 </script>
 
 </body>
