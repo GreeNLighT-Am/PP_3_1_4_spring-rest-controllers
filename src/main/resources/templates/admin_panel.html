@@ -1,0 +1,707 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+    <meta name="_csrf" th:content="${_csrf.token}"/>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+
+    <!-- Optional JavaScript; choose one of the two! -->
+    <!-- Option 1: Bootstrap Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM"
+            crossorigin="anonymous"></script>
+
+    <!-- Option 2: Separate Popper and Bootstrap JS -->
+    <!--
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js" integrity="sha384-IQsoLXl5PILFhosVNubq5LC7Qb9DXgDA9i+tQ8Zj3iwWAwPtgFTxbJ8NT4GN1R8p" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.min.js" integrity="sha384-cVKIPhGWiC2Al4u+LWgxfKTRIcfu0JTxR+EQDz/bgldoEyl4H0zUF0QKbrJ0EcQF" crossorigin="anonymous"></script>
+    -->
+
+    <title>Admin panel</title>
+
+</head>
+<body>
+
+
+<!--Навбар-->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark px-3" style="height: 45px;">
+
+    <div class="d-flex align-items-center justify-content-start w-100">
+        <span class="text-white me-1 fs-5 fw-bold" th:text="${authorisedUser.email}"></span>
+        <span class="text-white me-1 fs-5">with roles:</span>
+        <span class="text-white fs-5" th:each="role, iter : ${authorisedUser.roles}"
+              th:text="${iter.index > 0 ? ', ' : ''} + ${#strings.replace(role.role, 'ROLE_', '')}"></span>
+    </div>
+
+    <div class="navbar-nav d-flex">
+        <form th:action="@{/logout}" method="post" style="display: inline;">
+            <button type="submit"
+                    class="nav-link"
+                    style="background: none; border: none; padding: 0; margin: 0; cursor: pointer;">
+                Logout
+            </button>
+        </form>
+    </div>
+
+</nav>
+
+<div class="container-fluid vh-100">
+    <div class="row vh-100">
+
+        <div class="col-2 d-flex flex-column pt-3 px-0 mb-auto"><!-- Левая колонка (меню) -->
+            <div class="flex-grow-1 d-flex flex-column ">
+                <a class="nav-link bg-primary text-white flex-fill text-start rounded" href="/admin">Admin</a>
+                <a class="nav-link flex-fill text-start" href="/user">User</a>
+            </div>
+        </div>
+
+
+        <div class="col-10 bg-light d-flex flex-column px-4"> <!-- Правая колонка (контент) -->
+
+
+            <h1 class="mb-3 mt-3">Admin panel</h1>
+
+
+            <!--Табы-->
+            <nav class="nav nav-tabs" id="nav-tab" role="tablist">
+
+                <a class="nav-link active" id="users-table-tab" data-bs-toggle="tab" href="#users-table" role="tab"
+                   aria-controls="users-table" aria-selected="true">Users table</a>
+
+                <a class="nav-link" id="new-user-tab" data-bs-toggle="tab" href="#new-user" role="tab"
+                   aria-controls="new-user" aria-selected="false">New user</a>
+
+            </nav>
+
+
+            <div class="tab-content" id="nav-tabContent">
+
+                <!--Таб Users table-->
+                <div class="tab-pane fade show active" id="users-table" role="tabpanel"
+                     aria-labelledby="users-table-tab">
+
+                    <!--Содержимое таба Users table-->
+
+                    <!--Карточка All users-->
+                    <div class="card">
+                        <h5 class="card-header d-flex align-items-center">All users</h5>
+                        <div class="card-body">
+
+                            <!--Содержимое карточки All users-->
+
+                            <table class="table card-body table-striped border-top">
+                                <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>First Name</th>
+                                    <th>Last Name</th>
+                                    <th>Age</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Edit</th>
+                                    <th>Delete</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <tr th:each="user : ${allUsers}">
+                                    <td th:text="${user.id}"></td>
+                                    <td th:text="${user.firstName}"></td>
+                                    <td th:text="${user.lastName}"></td>
+                                    <td th:text="${user.age}"></td>
+                                    <td th:text="${user.email}"></td>
+                                    <td>
+    <span th:each="role, iter : ${user.roles}"
+          th:text="${iter.index > 0 ? ', ' : ''} + ${#strings.replace(role.role, 'ROLE_', '')}">
+    </span>
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-info text-white" data-bs-toggle="modal"
+                                                data-bs-target="#editUserModal">Edit
+                                        </button>
+                                    </td>
+                                    <td>
+                                        <button type="button" class="btn btn-danger" data-bs-toggle="modal"
+                                                data-bs-target="#deleteUserModal">Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+
+                        </div>
+                    </div>
+                </div>
+
+
+                <!--Таб New user-->
+                <div class="tab-pane fade" id="new-user" role="tabpanel" aria-labelledby="new-user-tab">
+
+                    <!--Содержимое таба New user-->
+
+                    <!--Карточка Add new user-->
+                    <div class="card">
+                        <h5 class="card-header d-flex align-items-center">Add new user</h5>
+                        <div class="card-body">
+
+                            <!--Содержимое карточки Add new user-->
+
+                            <form id="newUserForm" class="container mx-auto text-center fw-bold"
+                                  style="max-width: 400px;">
+
+                                <div class="mb-3">
+                                    <label for="newFirstName" class="form-label mb-0">First name</label>
+                                    <input type="text" class="form-control py-1" id="newFirstName" name="firstName"
+                                           required>
+                                    <div id="errorNewFirstName" class="text-danger small"></div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="newLastName" class="form-label mb-0">Last name</label>
+                                    <input type="text" class="form-control py-1" id="newLastName" name="lastName"
+                                           required>
+                                    <div id="errorNewLastName" class="text-danger small"></div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="newAge" class="form-label mb-0">Age</label>
+                                    <input type="number" class="form-control py-1" id="newAge" name="age" required>
+                                    <div id="errorNewAge" class="text-danger small"></div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="newEmail" class="form-label mb-0">Email</label>
+                                    <input type="email" class="form-control py-1" id="newEmail" name="email" required>
+                                    <div id="errorNewEmail" class="text-danger small"></div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="newPassword" class="form-label mb-0">Password</label>
+                                    <input type="password" class="form-control py-1" id="newPassword" name="password"
+                                           required>
+                                    <div id="errorNewPassword" class="text-danger small"></div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="newRole" class="form-label mb-0">Role</label>
+                                    <select class="form-select py-1" id="newRole" name="roles" multiple size="2"
+                                            required>
+                                    </select>
+                                    <div id="errorNewRoles" class="text-danger small"></div>
+                                </div>
+
+                                <div class="mt-3">
+                                    <button type="submit" class="btn btn-success" id="saveNewUser">Add new user</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!--Модальное окно редактирования пользователя-->
+<div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editUserModalLabel">Edit user</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center fw-bold">
+                <form id="editUserForm" class="mx-auto w-75">
+
+                    <div class="mb-3">
+                        <label for="editId" class="form-label mb-0">ID</label>
+                        <input type="text" class="form-control py-1" id="editId" disabled>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="editFirstName" class="form-label mb-0">First name</label>
+                        <input type="text" class="form-control py-1" id="editFirstName" required>
+                        <div id="errorFirstName" class="text-danger small"></div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="editLastName" class="form-label mb-0">Last name</label>
+                        <input type="text" class="form-control py-1" id="editLastName" required>
+                        <div id="errorLastName" class="text-danger small"></div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="editAge" class="form-label mb-0">Age</label>
+                        <input type="number" class="form-control py-1" id="editAge" required>
+                        <div id="errorAge" class="text-danger small"></div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="editEmail" class="form-label mb-0">Email</label>
+                        <input type="email" class="form-control py-1" id="editEmail" required>
+                        <div id="errorEmail" class="text-danger small"></div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="editPassword" class="form-label mb-0">Password</label>
+                        <input type="password" class="form-control py-1" id="editPassword"
+                               placeholder="Оставить пустым, чтобы не менять">
+                        <div id="errorPassword" class="text-danger small"></div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="editRole" class="form-label mb-0">Role</label>
+                        <select class="form-select py-1" id="editRole" required multiple
+                                size="2">
+                        </select>
+                        <div id="errorRoles" class="text-danger small"></div>
+                    </div>
+
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="saveEdit">Edit</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!--Этот скрипт безопасно передаёт данные с сервера (из переменной allRoles) в клиентский JavaScript как константу allRolesData-->
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    const allRolesData = /*[[${allRoles}]]*/ null;
+    /*]]>*/
+</script>
+
+<!--Скрипт автоматического заполнения списка ролей при открытии вкладки New user-->
+<script>
+    document.getElementById('new-user-tab').addEventListener('click', function () {
+
+        const roleSelect = document.getElementById('newRole');
+        roleSelect.innerHTML = '';
+        if (roleSelect && allRolesData) {
+            allRolesData.forEach(role => {
+                const roleName = role.role.replace('ROLE_', '');
+                const option = document.createElement('option');
+                option.value = role.id;
+                option.text = roleName;
+                roleSelect.appendChild(option);
+            });
+        }
+    });
+</script>
+
+
+<!--Скрипт для модального окна редактирования пользователя-->
+<script>
+    // Обработчик клика по кнопке "Edit"-->
+    document.querySelectorAll('.btn-info').forEach(button => {
+        button.addEventListener('click', function () {
+            const row = this.closest('tr');
+            const cells = row.querySelectorAll('td');
+
+            // Заполняем поля-->
+            document.getElementById('editId').value = cells[0].textContent.trim();
+            document.getElementById('editFirstName').value = cells[1].textContent.trim();
+            document.getElementById('editLastName').value = cells[2].textContent.trim();
+            document.getElementById('editAge').value = cells[3].textContent.trim();
+            document.getElementById('editEmail').value = cells[4].textContent.trim();
+
+            // Получаем список ролей из ячейки-->
+            const roleText = cells[5].textContent.trim();
+            const selectedRoleNames = roleText.split(',').map(r => r.trim());
+
+            // Получаем <select> для ролей-->
+            const roleSelect = document.getElementById('editRole');
+            roleSelect.innerHTML = '';
+
+            // Заполняем <select>
+            allRolesData.forEach(role => {
+                const roleName = role.role.replace('ROLE_', ''); // Преобразуем ROLE_ADMIN → ADMIN
+                const option = document.createElement('option');
+                option.value = role.id;
+                option.text = roleName;
+
+                if (selectedRoleNames.includes(roleName)) {
+                    option.selected = true;
+                }
+
+                roleSelect.appendChild(option);
+            });
+
+            // Очистка предыдущих ошибок и стилей
+            clearValidationErrors();
+
+        });
+    });
+
+
+    //  Обработчик кнопки "Edit" в модальном окне редактирования пользователя
+    document.getElementById('saveEdit').addEventListener('click', function () {
+
+        // Блокируем кнопку на время запроса
+        const saveButton = document.getElementById('saveEdit');
+        const originalText = saveButton.textContent;
+        saveButton.disabled = true;
+        saveButton.textContent = 'Saving...';
+
+
+        const modalElement = document.getElementById('editUserModal');
+        const modal = bootstrap.Modal.getInstance(modalElement);
+        const ageInput = document.getElementById('editAge').value.trim();   // Получаем значение из формы age
+        const age = ageInput ? parseInt(ageInput, 10) : null;               // Если значение представлено, парсим, иначе присваиваем null
+
+        // Собираем данные формы в объект formData
+        const formData = {
+            id: parseInt(document.getElementById('editId').value),
+            firstName: document.getElementById('editFirstName').value.trim(),
+            lastName: document.getElementById('editLastName').value.trim(),
+            age: age,
+            email: document.getElementById('editEmail').value.trim(),
+            password: document.getElementById('editPassword').value.trim(),
+            roles: Array.from(document.getElementById('editRole').selectedOptions).map(opt => opt.value)
+        };
+
+        // Очистка предыдущих ошибок и подсветки
+        clearValidationErrors();
+
+
+        const params = new URLSearchParams();
+        params.append('id', formData.id);
+        params.append('firstName', formData.firstName);
+        params.append('lastName', formData.lastName);
+        if (formData.age !== null && formData.age !== undefined) {  // Правильная обработка age, если age null — не добавляем, Spring получит null
+            params.append('age', formData.age);
+        }
+        params.append('email', formData.email);
+        if (formData.password) params.append('password', formData.password);
+        formData.roles.forEach(roleId => params.append('roles', roleId)); // ✅ Каждый элемент отдельно
+
+        // Отправляем на /admin/update — именно этот эндпоинт в контроллере
+        fetch('/admin/update', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest', // ← Чтобы сервер знал, что это AJAX
+                'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]')?.getAttribute('content')
+            },
+            body: params.toString()
+        })
+            .then(response => {
+                if (response.ok) {
+                    // Успех — обновляем страницу
+                    modal.hide();
+                    location.reload();
+                } else if (response.status === 400) {
+                    // Ошибки валидации
+                    return response.json().then(errors => {
+                        console.log("Ошибки валидации:", errors);
+                        displayValidationErrors(errors);
+                    });
+                } else {
+                    alert('Неизвестная ошибка');
+                }
+            })
+            .catch(err => {
+                console.error('Ошибка сети:', err);
+                alert('Ошибка сети при отправке запроса');
+            })
+            .finally(() => {
+                // Восстанавливаем кнопку
+                saveButton.disabled = false;
+                saveButton.textContent = originalText;
+            });
+    });
+
+    // Функция: очистка ошибок и стилей
+    function clearValidationErrors() {
+        document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+        document.querySelectorAll('.text-danger[id^="error"]').forEach(el => el.textContent = '');
+    }
+
+    // Функция: показ ошибок и подсветка полей
+    function displayValidationErrors(errors) {
+        for (const [field, message] of Object.entries(errors)) {
+            const inputIdMap = {
+                'firstName': 'editFirstName',
+                'lastName': 'editLastName',
+                'age': 'editAge',
+                'email': 'editEmail',
+                'password': 'editPassword',
+                'roles': 'editRole'
+            };
+
+            const errorIdMap = {
+                'firstName': 'errorFirstName',
+                'lastName': 'errorLastName',
+                'age': 'errorAge',
+                'email': 'errorEmail',
+                'password': 'errorPassword',
+                'roles': 'errorRoles'
+            };
+
+            const inputId = inputIdMap[field];
+            const errorId = errorIdMap[field];
+
+            if (inputId && errorId) {
+                const inputElement = document.getElementById(inputId);
+                const errorElement = document.getElementById(errorId);
+
+                if (inputElement) {
+                    inputElement.classList.add('is-invalid'); // Подсветка красным
+                }
+                if (errorElement) {
+                    errorElement.textContent = message;
+                }
+            }
+        }
+    }
+</script>
+
+
+<!--Скрипт для таба New user-->
+<script>
+
+    // Обработчик формы в табе "New user"
+    document.getElementById('saveNewUser').addEventListener('click', function () {
+        // e.preventDefault(); // Отменяем стандартную отправку формы (click заменить на submit (тут и в форме в типе кнопки) в function () добавить e)
+
+        // Блокируем кнопку на время запроса
+        const saveButton = document.getElementById('saveNewUser');
+        const originalText = saveButton.textContent;
+        saveButton.disabled = true;
+        saveButton.textContent = 'Adding...';
+
+        // Собираем данные формы
+        const ageInput = document.getElementById('newAge').value.trim();   // Получаем значение из формы age
+        const age = ageInput ? parseInt(ageInput, 10) : null;              // Если значение представлено, парсим, иначе присваиваем null
+
+        const formData = {
+            firstName: document.getElementById('newFirstName').value.trim(),
+            lastName: document.getElementById('newLastName').value.trim(),
+            age: age,
+            email: document.getElementById('newEmail').value.trim(),
+            password: document.getElementById('newPassword').value.trim(),
+            roles: Array.from(document.getElementById('newRole').selectedOptions).map(opt => opt.value)
+        };
+
+        // Очистка предыдущих ошибок и подсветки
+        clearValidationErrorsNew();
+
+        const params = new URLSearchParams();
+        params.append('firstName', formData.firstName);
+        params.append('lastName', formData.lastName);
+        // Правильная обработка age
+        if (formData.age !== null && formData.age !== undefined) {
+            params.append('age', formData.age);
+        }
+        // Если age null — не добавляем, Spring получит null
+        params.append('email', formData.email);
+        params.append('password', formData.password);
+        formData.roles.forEach(roleId => params.append('roles', roleId));
+
+        fetch('/admin/add', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]')?.getAttribute('content')
+            },
+            body: params.toString()
+        })
+            .then(response => {
+                if (response.ok) {
+                    // Успех — обновляем страницу
+                    location.reload();
+                } else if (response.status === 400) {
+                    // Ошибки валидации: показываем под полями
+                    return response.json().then(errors => {
+                        console.log("Ошибки валидации при создании:", errors);
+                        displayValidationErrorsNew(errors);
+                    });
+                } else {
+                    alert('Неизвестная ошибка при создании пользователя');
+                }
+            })
+            .catch(err => {
+                console.error('Ошибка сети при создании пользователя:', err);
+                alert('Ошибка сети при отправке запроса');
+            })
+            .finally(() => {
+                // Восстанавливаем кнопку
+                saveButton.disabled = false;
+                saveButton.textContent = originalText;
+            });
+    });
+
+    // Функция: очистка ошибок для формы New user
+    function clearValidationErrorsNew() {
+        document.querySelectorAll('#newUserForm .is-invalid').forEach(el => el.classList.remove('is-invalid'));
+        document.querySelectorAll('.text-danger[id^="errorNew"]').forEach(el => el.textContent = '');
+    }
+
+    // Функция: показ ошибок для формы New user
+    function displayValidationErrorsNew(errors) {
+        const inputIdMap = {
+            'firstName': 'newFirstName',
+            'lastName': 'newLastName',
+            'age': 'newAge',
+            'email': 'newEmail',
+            'password': 'newPassword',
+            'roles': 'newRole'
+        };
+        const errorIdMap = {
+            'firstName': 'errorNewFirstName',
+            'lastName': 'errorNewLastName',
+            'age': 'errorNewAge',
+            'email': 'errorNewEmail',
+            'password': 'errorNewPassword',
+            'roles': 'errorNewRoles'
+        };
+
+        for (const [field, message] of Object.entries(errors)) {
+            const inputId = inputIdMap[field];
+            const errorId = errorIdMap[field];
+
+            if (inputId && errorId) {
+                const inputElement = document.getElementById(inputId);
+                const errorElement = document.getElementById(errorId);
+
+                if (inputElement) {
+                    inputElement.classList.add('is-invalid');
+                }
+                if (errorElement) {
+                    errorElement.textContent = message;
+                }
+            }
+        }
+    }
+
+</script>
+
+
+<!--Модальное окно удаления пользователя-->
+<div class="modal fade" id="deleteUserModal" tabindex="-1" aria-labelledby="deleteUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteUserModalLabel">Edit user</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center fw-bold">
+                <form id="deleteUserForm" class="mx-auto w-50">
+                    <div class="mb-3">
+                        <label for="deleteId" class="form-label mb-0">ID</label>
+                        <input type="text" class="form-control py-1" id="deleteId" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label for="deleteFirstName" class="form-label mb-0">First name</label>
+                        <input type="text" class="form-control py-1" id="deleteFirstName" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label for="deleteLastName" class="form-label mb-0">Last name</label>
+                        <input type="text" class="form-control py-1" id="deleteLastName" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label for="deleteAge" class="form-label mb-0">Age</label>
+                        <input type="number" class="form-control py-1" id="deleteAge" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label for="deleteEmail" class="form-label mb-0">Email</label>
+                        <input type="email" class="form-control py-1" id="deleteEmail" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label for="deletePassword" class="form-label mb-0">Password</label>
+                        <input type="password" class="form-control py-1" id="deletePassword" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label for="deleteRole" class="form-label mb-0">Role</label>
+                        <select class="form-select py-1" id="deleteRole" multiple
+                                size="2" disabled>
+                            <option value="ADMIN">ADMIN</option>
+                            <option value="USER">USER</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-danger" id="deleteUser">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!--Скрипт для модального окна удаления пользователя-->
+<script>
+    // Получаем кнопку Delete и связываем с обработчиком клика
+    document.querySelectorAll('.btn-danger').forEach(button => {
+        button.addEventListener('click', function () {
+            const row = this.closest('tr');
+            const cells = row.querySelectorAll('td');
+
+            document.getElementById('deleteId').value = cells[0].textContent.trim();
+            document.getElementById('deleteFirstName').value = cells[1].textContent.trim();
+            document.getElementById('deleteLastName').value = cells[2].textContent.trim();
+            document.getElementById('deleteAge').value = cells[3].textContent.trim();
+            document.getElementById('deleteEmail').value = cells[4].textContent.trim();
+
+            const roleText = cells[5].textContent.trim();
+            const selectedRoleNames = roleText.split(',').map(r => r.trim());
+
+            const roleSelect = document.getElementById('deleteRole');
+            roleSelect.innerHTML = '';
+
+            allRolesData.forEach(role => {
+                const roleName = role.role.replace('ROLE_', '');
+                const option = document.createElement('option');
+                option.value = role.id;
+                option.text = roleName;
+                if (selectedRoleNames.includes(roleName)) {
+                    option.selected = true;
+                }
+                roleSelect.appendChild(option);
+            });
+        });
+    });
+
+    // Обработчик клика по кнопке Delete в модальном окне удаления пользователя
+    document.getElementById('deleteUser').addEventListener('click', function () {
+        const userId = document.getElementById('deleteId').value;
+
+        fetch('/admin/delete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="_csrf"]')?.getAttribute('content')
+            },
+            body: 'id=' + userId
+        })
+            .then(response => {
+                if (response.redirected) {
+                    window.location.href = response.url;
+                } else {
+                    alert('Ошибка при удалении');
+                }
+            })
+            .catch(err => {
+                console.error('Ошибка:', err);
+                alert('Ошибка сети');
+            });
+
+        const modal = bootstrap.Modal.getInstance(document.getElementById('deleteUserModal'));
+        modal.hide();
+    });
+
+</script>
+
+</body>
+</html>
