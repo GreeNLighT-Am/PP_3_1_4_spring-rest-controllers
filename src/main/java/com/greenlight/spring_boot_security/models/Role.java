@@ -27,16 +27,16 @@ import java.util.List;
 public class Role implements GrantedAuthority {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
 
     @Column(name = "role")
     private String role;
 
     // Двунаправленная связь с User
-    @ManyToMany(mappedBy = "roles")
     @JsonIgnore
+    @ManyToMany(mappedBy = "roles")
     private List<User> users;
 
     @Override

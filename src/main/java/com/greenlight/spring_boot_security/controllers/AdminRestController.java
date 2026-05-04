@@ -26,18 +26,6 @@ public class AdminRestController {
     private final UserService userService;
     private final RoleRepository roleRepository;
 
-    private void processRoles(@Validated(OnUpdate.class) @RequestBody User user) {
-        if (user.getRoles() != null && !user.getRoles().isEmpty()) {
-            List<Integer> roleIds = user.getRoles().stream()
-                    .map(Role::getId)
-                    .collect(Collectors.toList());
-            List<Role> selectedRoles = roleRepository.findByIdIn(roleIds);
-            user.setRoles(selectedRoles);
-        } else {
-            user.setRoles(Collections.emptyList());
-        }
-    }
-
     @GetMapping("/users")
     public ResponseEntity<List<User>> getAllUsers() {
         List<User> users = userService.showAllUsers();
@@ -109,11 +97,15 @@ public class AdminRestController {
         if (bindingResult.hasErrors()) {
             Map<String, String> errors = new HashMap<>();
             bindingResult.getFieldErrors().forEach(error -> {
-                // Пропускаем ошибки валидации пароля, если пароль не передан
-                if (!error.getField().equals("password") ||
-                        (user.getPassword() != null && !user.getPassword().isEmpty())) {
-                    errors.put(error.getField(), error.getDefaultMessage());
+                String field = error.getField();
+
+                // Пропускаем ошибки валидации пароля, если пароль не был отправлен
+                if (field.equals("password") &&
+                        (user.getPassword() == null || user.getPassword().isEmpty())) {
+                    return; // Пропускаем
                 }
+
+                errors.put(field, error.getDefaultMessage());
             });
 
             if (!errors.isEmpty()) {
@@ -134,28 +126,34 @@ public class AdminRestController {
             // Пользователь был удален между проверками (race condition)
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(Map.of(
-                            "error", e.getMessage() + " Возможно, он был удален другим администратором."
-                    ));
+                            "error", String.format("%s Возможно, он уже был удален другим администратором.", e.getMessage(
+                            ))));
         }
     }
 
     @DeleteMapping("/users/{id}")
     public ResponseEntity<?> deleteUser(@PathVariable Integer id) {
 
-        // Проверяем существование пользователя
-        // Первый уровень: быстрая проверка существования
-        if (!userService.existsById(id)) {
+        try {
+            userService.deleteUserById(id);
+            return ResponseEntity.ok(Map.of("message", String.format("Пользователь с ID %d успешно удалён.", id)));
+        } catch (EntityNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of(
-                            "error", String.format("Пользователь с ID %d не найден. Возможно, он уже был удален другим администратором.", id)
-                    ));
+                    .body(Map.of("error", String.format("%s Возможно, он уже был удален другим администратором.", e.getMessage())));
         }
 
-            userService.deleteUserById(id);
-
-            Map<String, String> response = new HashMap<>();
-            response.put("message", "Пользователь успешно удалён.");
-            return ResponseEntity.ok().body(response);
-
     }
+
+    private void processRoles(@Validated(OnUpdate.class) @RequestBody User user) {
+        if (user.getRoles() != null && !user.getRoles().isEmpty()) {
+            List<Integer> roleIds = user.getRoles().stream()
+                    .map(Role::getId)
+                    .collect(Collectors.toList());
+            List<Role> selectedRoles = roleRepository.findByIdIn(roleIds);
+            user.setRoles(selectedRoles);
+        } else {
+            user.setRoles(Collections.emptyList());
+        }
+    }
+
 }

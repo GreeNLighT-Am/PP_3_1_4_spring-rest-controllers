@@ -559,9 +559,9 @@
             if (error.status === 404) {
                 showAlert('danger', error.error || 'Ошибка при удалении пользователя');
                 showAlert('warning', 'Попробуйте обновить страницу.');
+            } else {
+                showAlert('danger', error.error || 'Ошибка при удалении пользователя');
             }
-
-            showAlert('danger', error.error || 'Ошибка при удалении пользователя');
         }
     });
 

@@ -37,15 +37,15 @@ import java.util.stream.Collectors;
 @Entity
 @Getter
 @Setter
-@ToString(exclude = "password") // Исключаем пароль из toString для безопасности
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "users")
+@ToString(exclude = "password")
 public class User implements UserDetails {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
 
     @Column(name = "first_name")
@@ -64,8 +64,8 @@ public class User implements UserDetails {
     private Integer age;
 
     @Column(name = "email")
-    @NotEmpty(message = "Email не должен быть пустым", groups = {OnCreate.class, OnUpdate.class})
     @Email(message = "Email должен быть валидным", groups = {OnCreate.class, OnUpdate.class})
+    @NotEmpty(message = "Email не должен быть пустым", groups = {OnCreate.class, OnUpdate.class})
     private String email;
 
     @Column

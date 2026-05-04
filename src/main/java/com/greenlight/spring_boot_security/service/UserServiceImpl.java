@@ -54,7 +54,7 @@ public class UserServiceImpl implements UserService {
         Optional<User> existingUser = userRepository.findUserWithRolesById(updatedUser.getId());
 
         if (existingUser.isEmpty()) {
-            throw new EntityNotFoundException("Пользователь с ID " + updatedUser.getId() + " не найден");
+            throw new EntityNotFoundException("Пользователь с ID " + updatedUser.getId() + " не найден.");
         }
 
         User currentUser = existingUser.get();
@@ -84,6 +84,9 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void deleteUserById(int id) {
+        if (!userRepository.existsById(id)) {
+            throw new EntityNotFoundException("Пользователь с ID " + id + " не найден.");
+        }
         userRepository.deleteById(id);
     }
 
