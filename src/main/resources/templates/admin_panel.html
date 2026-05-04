@@ -236,7 +236,7 @@
     let allRoles = [];
     let currentUser = null;
 
-    // Настройка fetch с правильными заголовками
+    // Настройка fetch
     async function fetchApi(url, options = {}) {
         const headers = {
             'Content-Type': 'application/json',
@@ -276,17 +276,6 @@
         } catch (error) {
             console.error('Error loading initial data:', error);
             showAlert('danger', 'Ошибка при загрузке данных');
-        }
-    }
-
-    // Обновление данных текущего пользователя
-    async function refreshCurrentUser() {
-        try {
-            const user = await fetchApi('/api/admin/current-user');
-            currentUser = user;
-            renderUserInfo();
-        } catch (error) {
-            console.error('Error refreshing current user:', error);
         }
     }
 
@@ -422,9 +411,6 @@
                 tab.show();
             }
 
-            // Прокручиваем страницу к таблице (опционально)
-            document.getElementById('users-table').scrollIntoView({behavior: 'smooth'});
-
         } catch (error) {
             console.error('Error creating user:', error);
 
@@ -493,7 +479,7 @@
             // Обновляем список пользователей
             await refreshUsersList();
 
-            // Проверяем, редактировал ли пользователь самого себя
+            // Проверяем, редактировал ли пользователь самого себя, если да - обновляем
             if (currentUser && currentUser.id === userId) {
                 await refreshCurrentUser();
             }
@@ -506,7 +492,10 @@
         } catch (error) {
             console.error('Error updating user:', error);
 
-            if (error.status === 400) {
+            if (error.status === 404) {
+                showAlert('danger', error.error || 'Ошибка при обновлении пользователя');
+                showAlert('warning', 'Попробуйте обновить страницу.');
+            } else if (error.status === 400) {
                 // Ошибка валидации
                 displayFormErrors('editUserForm', error);
             } else {
@@ -566,33 +555,33 @@
 
         } catch (error) {
             console.error('Error deleting user:', error);
+
+            if (error.status === 404) {
+                showAlert('danger', error.error || 'Ошибка при удалении пользователя');
+                showAlert('warning', 'Попробуйте обновить страницу.');
+            }
+
             showAlert('danger', error.error || 'Ошибка при удалении пользователя');
         }
     });
 
     // ============ Функции обновления данных ============
+
+    // Обновление таблицы пользователей
     async function refreshUsersList() {
         try {
-            const users = await fetchApi('/api/admin/users');
-            allUsers = users;
+            allUsers = await fetchApi('/api/admin/users');
             renderUsersTable();
         } catch (error) {
             console.error('Error refreshing users list:', error);
         }
     }
 
+    // Обновление данных текущего пользователя
     async function refreshCurrentUser() {
         try {
-            const user = await fetchApi('/api/admin/current-user');
-            currentUser = user;
+            currentUser = await fetchApi('/api/admin/current-user');
             renderUserInfo();
-
-            // Также обновляем данные текущего пользователя в таблице, если они там есть
-            const userInTable = allUsers.find(u => u.id === currentUser.id);
-            if (userInTable) {
-                Object.assign(userInTable, currentUser);
-                renderUsersTable();
-            }
         } catch (error) {
             console.error('Error refreshing current user:', error);
         }
@@ -674,11 +663,7 @@
     // ============ Инициализация ============
     document.addEventListener('DOMContentLoaded', loadInitialData);
 
-    // Обновляем данные каждые 30 секунд (опционально)
-    // setInterval(async () => {
-    //     await refreshUsersList();
-    //     await refreshCurrentUser();
-    // }, 30000);
+
 </script>
 
 </body>

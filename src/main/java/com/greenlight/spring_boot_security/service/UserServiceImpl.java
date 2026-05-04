@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.greenlight.spring_boot_security.models.User;
 import com.greenlight.spring_boot_security.repositories.UserRepository;
 
+import javax.persistence.EntityNotFoundException;
 import java.util.List;
 import java.util.Optional;
 
@@ -43,20 +44,41 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public boolean existsById(int id) {
+        return userRepository.existsById(id);
+    }
+
+    @Override
     @Transactional
-    public void updateUser(User user) {
-        Optional<User> existingUser = findUserById(user.getId());
-        if (existingUser.isPresent()) {
-            User dbUser = existingUser.get();
-            // Хэшируем пароль только если он был изменён
-            if (user.getPassword() != null && !user.getPassword().isEmpty() && !user.getPassword().equals(dbUser.getPassword())) {
-                user.setPassword(passwordEncoder.encode(user.getPassword()));
-            } else {
-                // Сохраняем старый пароль
-                user.setPassword(dbUser.getPassword());
-            }
-            userRepository.save(user);
+    public void updateUser(User updatedUser) {
+        Optional<User> existingUser = userRepository.findUserWithRolesById(updatedUser.getId());
+
+        if (existingUser.isEmpty()) {
+            throw new EntityNotFoundException("Пользователь с ID " + updatedUser.getId() + " не найден");
         }
+
+        User currentUser = existingUser.get();
+
+        // Обработка пароля
+        String newPassword = updatedUser.getPassword();
+        String currentPassword = currentUser.getPassword();
+        // Проверяем что пароль передан
+        if (newPassword != null && !newPassword.trim().isEmpty()) {
+            // Проверяем, изменился ли пароль
+            if (!passwordEncoder.matches(newPassword, currentPassword)) {
+                // Пароль действительно новый - хешируем
+                updatedUser.setPassword(passwordEncoder.encode(newPassword));
+            } else {
+                // Пароль не изменился - оставляем существующий хеш
+                updatedUser.setPassword(currentPassword);
+            }
+        } else {
+            // Пароль не был передан (пустой или null)
+            // Сохраняем текущий пароль пользователя
+            updatedUser.setPassword(currentPassword);
+        }
+
+        userRepository.save(updatedUser);
     }
 
     @Override

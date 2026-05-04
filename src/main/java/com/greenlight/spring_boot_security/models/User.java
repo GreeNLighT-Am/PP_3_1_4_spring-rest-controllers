@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
 @Entity
 @Getter
 @Setter
-@ToString
+@ToString(exclude = "password") // Исключаем пароль из toString для безопасности
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "users")

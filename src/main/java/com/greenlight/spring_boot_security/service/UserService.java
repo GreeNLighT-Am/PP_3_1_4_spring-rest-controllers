@@ -15,6 +15,8 @@ public interface UserService {
 
     Optional<User> findUserById(int id);
 
+    boolean existsById(int id);
+
     void updateUser(User user);
 
     void deleteUserById(int id);
